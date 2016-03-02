@@ -64,6 +64,8 @@
     <Compile Include="Global.cs" />
     <Compile Include="IGithubAuthentication.cs" />
     <Compile Include="IGithubAuthority.cs" />
+    <Compile Include="InteractiveLoginHelper.cs" />
+    <Compile Include="NativeMethodsForInteractiveLogin.cs" />
     <Compile Include="SecretCache.cs" />
     <Compile Include="TokenScope.cs" />
     <Compile Include="TargetUri.cs" />
