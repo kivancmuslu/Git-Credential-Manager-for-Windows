@@ -69,7 +69,7 @@ namespace Microsoft.Alm.Authentication
                 }
 
                 const string HttpJsonContentType = "application/x-www-form-urlencoded";
-                const string JsonContentFormat = @"{{ ""scopes"": {0}, ""note"": ""git: {1} on {2} at {3:dd-MMM-yyyy HH:mm}"" }}";
+                const string JsonContentFormat = @"{{ ""scopes"": {0}, ""note"": ""codeflow: {1} on {2} at {3:dd-MMM-yyyy HH:mm}"" }}";
 
                 StringBuilder scopesBuilder = new StringBuilder();
                 scopesBuilder.Append('[');
