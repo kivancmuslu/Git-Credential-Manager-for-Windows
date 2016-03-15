@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -77,14 +78,14 @@ namespace Microsoft.Alm.Authentication
                     }
 
                     if (await PopulateTokenTargetId(targetUri, accessToken))
-                    {
+                    {						
                         Uri requestUri;
                         if (TryCreateRequestUri(targetUri, requireCompactToken, out requestUri))
                         {
                             Trace.WriteLine("   request url is " + requestUri);
 
                             using (StringContent content = GetAccessTokenRequestBody(targetUri, accessToken, tokenScope))
-                            using (HttpResponseMessage response = await httpClient.PostAsync(requestUri, content))
+							using (HttpResponseMessage response = await httpClient.PostAsync(requestUri, content))
                             {
                                 if (response.StatusCode == HttpStatusCode.OK)
                                 {
@@ -264,7 +265,8 @@ namespace Microsoft.Alm.Authentication
 
         private StringContent GetAccessTokenRequestBody(TargetUri targetUri, Token accessToken, VstsTokenScope tokenScope)
         {
-            const string ContentJsonFormat = "{{ \"scope\" : \"{0}\", \"targetAccounts\" : [\"{1}\"], \"displayName\" : \"Git: {2} on {3}\" }}";
+            // Add to below if you want a PAT token of shorter duration - , \"validFrom\": \"{4}\", \"validTo\": \"{5}\"
+            const string ContentJsonFormat = "{{ \"scope\" : \"{0}\", \"targetAccounts\" : [\"{1}\"], \"displayName\" : \"CodeFlow: {2} on {3}\"}}"; 
             const string HttpJsonContentType = "application/json";
 
             Debug.Assert(accessToken != null && (accessToken.Type == TokenType.Access || accessToken.Type == TokenType.Federated), "The accessToken parameter is null or invalid");
@@ -272,6 +274,7 @@ namespace Microsoft.Alm.Authentication
 
             Trace.WriteLine("   creating access token scoped to '" + tokenScope + "' for '" + accessToken.TargetIdentity + "'");
 
+            // Add to below if you want PAT of shorter duration - , DateTime.UtcNow.ToString(DateTimeFormatInfo.InvariantInfo), DateTime.UtcNow.AddDays(365).ToString(DateTimeFormatInfo.InvariantInfo)
             string jsonContent = String.Format(ContentJsonFormat, tokenScope, accessToken.TargetIdentity, targetUri, Environment.MachineName);
             StringContent content = new StringContent(jsonContent, Encoding.UTF8, HttpJsonContentType);
 
@@ -353,11 +356,25 @@ namespace Microsoft.Alm.Authentication
             return request;
         }
 
+        private static bool IsPreProductionEnvironment(Uri targeturi)
+        {
+            if (targeturi.Host.Contains("tfsallin.net"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         private bool TryCreateRequestUri(TargetUri targetUri, bool requireCompactToken, out Uri requestUri)
         {
             const string TokenAuthHostFormat = "app.vssps.{0}";
             const string SessionTokenUrl = "https://" + TokenAuthHostFormat + "/_apis/token/sessiontokens?api-version=1.0";
             const string CompactTokenUrl = SessionTokenUrl + "&tokentype=compact";
+
+            const string TokenAuthHostPPE = "app.vcwtestsps.tfsallin.net";
+            const string SessionTokenPPEUrl = "https://" + TokenAuthHostPPE + "/_apis/token/sessiontokens?api-version=1.0";
+            const string CompactTokenPPEUrl = SessionTokenPPEUrl + "&tokentype=compact";
 
             Debug.Assert(targetUri != null, $"The `targetUri` parameter is null.");
 
@@ -365,6 +382,11 @@ namespace Microsoft.Alm.Authentication
 
             if (targetUri == null)
                 return false;
+
+            bool isPreProd = IsPreProductionEnvironment(targetUri);
+            string compactTokenUrl = isPreProd ? CompactTokenPPEUrl : CompactTokenUrl;
+            string sessionTokenUrl = isPreProd ? SessionTokenPPEUrl : SessionTokenUrl;
+            //string requestUrl = requireCompactToken ? compactTokenUrl : sessionTokenUrl;
 
             // the host name can be something like foo.visualstudio.com in which case we
             // need the "foo." prefix removed.
@@ -379,8 +401,8 @@ namespace Microsoft.Alm.Authentication
             }
 
             host = requireCompactToken
-                ? String.Format(SessionTokenUrl, host)
-                : String.Format(CompactTokenUrl, host);
+                ? isPreProd ? sessionTokenUrl : String.Format(sessionTokenUrl, host)
+                : isPreProd ? compactTokenUrl : String.Format(compactTokenUrl, host);
 
             return Uri.TryCreate(host, UriKind.Absolute, out requestUri);
         }

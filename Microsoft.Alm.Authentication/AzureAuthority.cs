@@ -15,9 +15,19 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         public const string AuthorityHostUrlBase = "https://login.microsoftonline.com";
         /// <summary>
+        /// The base URL for logon services in Azure for PPE environment.
+        /// </summary>
+        public const string PPEAuthorityHostUrlBase = "https://login.windows-ppe.net";
+
+        /// <summary>
         /// The common Url for logon services in Azure.
         /// </summary>
         public const string DefaultAuthorityHostUrl = AuthorityHostUrlBase + "/common";
+
+        /// <summary>
+        /// The common Url for logon services in Azure for PPE environment.
+        /// </summary>
+        public const string DefaultPPEAuthorityHostUrl = PPEAuthorityHostUrlBase + "/common";
 
         /// <summary>
         /// Creates a new <see cref="AzureAuthority"/> with an optional authority host url.

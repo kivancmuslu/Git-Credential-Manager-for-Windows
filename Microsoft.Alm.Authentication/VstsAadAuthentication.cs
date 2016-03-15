@@ -27,14 +27,23 @@ namespace Microsoft.Alm.Authentication
             Guid tenantId,
             VstsTokenScope tokenScope,
             ICredentialStore personalAccessTokenStore,
-            ITokenStore adaRefreshTokenStore = null)
+            ITokenStore adaRefreshTokenStore = null,
+            bool isPPE = false)
             : base(tokenScope,
                    personalAccessTokenStore,
-                   adaRefreshTokenStore)
+                   adaRefreshTokenStore, isPPE)
         {
             if (tenantId == Guid.Empty)
             {
-                this.VstsAuthority = new VstsAzureAuthority(AzureAuthority.DefaultAuthorityHostUrl);
+
+                if (isPPE)
+                {
+                    this.VstsAuthority = new VstsAzureAuthority(AzureAuthority.DefaultPPEAuthorityHostUrl);
+                }
+                else
+                {
+                    this.VstsAuthority = new VstsAzureAuthority(AzureAuthority.DefaultAuthorityHostUrl);
+                }
             }
             else
             {

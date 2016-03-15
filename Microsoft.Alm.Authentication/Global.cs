@@ -15,7 +15,7 @@ namespace Microsoft.Alm.Authentication
             if (_useragent == null)
             {
                 Version version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-                _useragent = String.Format("git-credential-manager ({0}; {1}; {2}) CLR/{3} git-tools/{4}",
+                _useragent = String.Format("CodeFlow ({0}; {1}; {2}) CLR/{3} Review-tools/{4}",
                                            Environment.OSVersion.VersionString,
                                            Environment.OSVersion.Platform,
                                            Environment.Is64BitOperatingSystem ? "x64" : "x86",
