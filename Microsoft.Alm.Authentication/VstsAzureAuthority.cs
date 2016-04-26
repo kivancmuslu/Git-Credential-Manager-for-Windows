@@ -13,6 +13,8 @@ namespace Microsoft.Alm.Authentication
 {
     internal class VstsAzureAuthority : AzureAuthority, IVstsAuthority
     {
+        private const string PreProdHost = "tfsallin.net";
+
         /// <summary>
         /// The maximum wait time for a network request before timing out
         /// </summary>
@@ -342,12 +344,12 @@ namespace Microsoft.Alm.Authentication
 
         private HttpWebRequest GetConnectionDataRequest(TargetUri targetUri)
         {
-            const string VstsValidationUrlFormat = "{0}://{1}/_apis/connectiondata";
+            const string VstsValidationUrlFormat = "{0}://{1}:{2}/_apis/connectiondata";
 
             Debug.Assert(targetUri != null && targetUri.IsAbsoluteUri, "The targetUri parameter is null or invalid");
 
             // create a url to the connection data end-point, it's deployment level and "always on".
-            string validationUrl = String.Format(VstsValidationUrlFormat, targetUri.Scheme, targetUri.DnsSafeHost);
+            string validationUrl = String.Format(VstsValidationUrlFormat, targetUri.Scheme, targetUri.DnsSafeHost, targetUri.Port);
 
             // start building the request, only supports GET
             HttpWebRequest request = WebRequest.CreateHttp(validationUrl);
@@ -358,7 +360,7 @@ namespace Microsoft.Alm.Authentication
 
         private static bool IsPreProductionEnvironment(Uri targeturi)
         {
-            if (targeturi.Host.Contains("tfsallin.net"))
+            if (targeturi.Host.Contains(PreProdHost))
             {
                 return true;
             }
@@ -372,9 +374,26 @@ namespace Microsoft.Alm.Authentication
             const string SessionTokenUrl = "https://" + TokenAuthHostFormat + "/_apis/token/sessiontokens?api-version=1.0";
             const string CompactTokenUrl = SessionTokenUrl + "&tokentype=compact";
 
-            const string TokenAuthHostPPE = "app.vcwtestsps.tfsallin.net";
-            const string SessionTokenPPEUrl = "https://" + TokenAuthHostPPE + "/_apis/token/sessiontokens?api-version=1.0";
-            const string CompactTokenPPEUrl = SessionTokenPPEUrl + "&tokentype=compact";
+            const string TokenAuthHostDevBox = "app.me";
+            const string TokenAuthHostPPE =  "app.vcwtestsps";
+            const string SessionTokenUrlFormat = "{0}://{1}.{2}:{3}/_apis/token/sessiontokens?api-version=1.0";
+            string sessionTokenPPEUrl = string.Empty;
+            string compactTokenPPEUrl = string.Empty;
+
+            bool isPreProd = IsPreProductionEnvironment(targetUri);
+            if (isPreProd)
+            {
+                if ((targetUri.Port != 80 && targetUri.Port != 443))
+                {
+                    sessionTokenPPEUrl = string.Format(SessionTokenUrlFormat, targetUri.Scheme, TokenAuthHostDevBox, PreProdHost, "9080");
+                }
+                else
+                {
+                    sessionTokenPPEUrl = string.Format(SessionTokenUrlFormat, targetUri.Scheme, TokenAuthHostPPE, PreProdHost, targetUri.Port);
+                }
+
+                compactTokenPPEUrl = sessionTokenPPEUrl + "&tokentype=compact";
+            }
 
             Debug.Assert(targetUri != null, $"The `targetUri` parameter is null.");
 
@@ -383,10 +402,8 @@ namespace Microsoft.Alm.Authentication
             if (targetUri == null)
                 return false;
 
-            bool isPreProd = IsPreProductionEnvironment(targetUri);
-            string compactTokenUrl = isPreProd ? CompactTokenPPEUrl : CompactTokenUrl;
-            string sessionTokenUrl = isPreProd ? SessionTokenPPEUrl : SessionTokenUrl;
-            //string requestUrl = requireCompactToken ? compactTokenUrl : sessionTokenUrl;
+            string compactTokenUrl = isPreProd ? compactTokenPPEUrl : CompactTokenUrl;
+            string sessionTokenUrl = isPreProd ? sessionTokenPPEUrl : SessionTokenUrl;
 
             // the host name can be something like foo.visualstudio.com in which case we
             // need the "foo." prefix removed.

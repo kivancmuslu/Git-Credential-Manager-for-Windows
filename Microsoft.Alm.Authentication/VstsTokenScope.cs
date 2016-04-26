@@ -101,26 +101,7 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         public static readonly VstsTokenScope WorkWrite = new VstsTokenScope("vso.work_write");
 
-        /// <summary>
-        /// Grants the ability to read vso identities.
-        /// </summary>
-        public static readonly VstsTokenScope IdentityRead = new VstsTokenScope("vso.identity");
-
-        /// <summary>
-        /// Grants the ability to read/write vso live updates such as SignalR notifications.
-        /// </summary>
-        public static readonly VstsTokenScope LiveUpdatesReadWrite = new VstsTokenScope("vso.live_updates");
-
-        /// <summary>
-        /// Grants the ability to read and write commit status.
-        /// </summary>
-        public static readonly VstsTokenScope CodeStatusReadWrite = new VstsTokenScope("vso.code_status");
-        /// <summary>
-        /// Grants access to all scopes.
-        /// </summary>
-        public static readonly VstsTokenScope All = new VstsTokenScope("app_token");
-
-        private VstsTokenScope(string value)
+        public VstsTokenScope(string value)
             : base(value)
         { }
 
@@ -151,9 +132,6 @@ namespace Microsoft.Alm.Authentication
             yield return TestWrite;
             yield return WorkRead;
             yield return WorkWrite;
-            yield return IdentityRead;
-            yield return CodeStatusReadWrite;
-            yield return All;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
