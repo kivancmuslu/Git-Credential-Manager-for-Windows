@@ -11,9 +11,11 @@ namespace Microsoft.Alm.Authentication
         public VstsMsaAuthentication(
             VstsTokenScope tokenScope,
             ICredentialStore personalAccessTokenStore,
+            string patVersion,
             ITokenStore adaRefreshTokenStore = null)
             : base(tokenScope,
                    personalAccessTokenStore,
+                   patVersion,
                    adaRefreshTokenStore)
         {
             this.VstsAuthority = new VstsAzureAuthority(DefaultAuthorityHost);
@@ -33,7 +35,8 @@ namespace Microsoft.Alm.Authentication
             : base(personalAccessTokenStore,
                    adaRefreshTokenStore,
                    vstsIdeTokenCache,
-                   liveAuthority)
+                   liveAuthority,
+                   string.Empty)
         { }
 
         /// <summary>

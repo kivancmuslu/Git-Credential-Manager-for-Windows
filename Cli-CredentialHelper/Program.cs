@@ -558,6 +558,7 @@ namespace Microsoft.Alm.CredentialHelper
                                                                 VstsCredentialScope,
                                                                 secrets,
                                                                 null,
+                                                                null,
                                                                 out authority)
                         || GithubAuthentication.GetAuthentication(operationArguments.TargetUri,
                                                                   GithubCredentialScope,
@@ -597,7 +598,7 @@ namespace Microsoft.Alm.CredentialHelper
 
                     Guid tenantId = Guid.Empty;
                     // return the allocated authority or a generic AAD backed VSTS authentication object
-                    return authority ?? new VstsAadAuthentication(Guid.Empty, VstsCredentialScope, secrets);
+                    return authority ?? new VstsAadAuthentication(Guid.Empty, VstsCredentialScope, secrets, null);
 
                 case AuthorityType.Basic:
                 default:
@@ -624,7 +625,7 @@ namespace Microsoft.Alm.CredentialHelper
                     Trace.WriteLine("   authority is Microsoft Live");
 
                     // return the allocated authority or a generic MSA backed VSTS authentication object
-                    return authority ?? new VstsMsaAuthentication(VstsCredentialScope, secrets);
+                    return authority ?? new VstsMsaAuthentication(VstsCredentialScope, secrets, null);
             }
         }
 

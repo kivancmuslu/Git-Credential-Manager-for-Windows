@@ -16,8 +16,9 @@ namespace Microsoft.Alm.Authentication
         public const string RedirectUrl = "urn:ietf:wg:oauth:2.0:oob";
 
         protected const string AdalRefreshPrefx = "ada";
+        protected readonly string PatVersion;
 
-        private BaseVstsAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore, bool isPPE = false)
+        private BaseVstsAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore, string patVersion, bool isPPE = false)
         {
             if (tokenScope == null)
                 throw new ArgumentNullException("scope", "The `scope` parameter is null or invalid.");
@@ -33,6 +34,7 @@ namespace Microsoft.Alm.Authentication
             this.PersonalAccessTokenStore = personalAccessTokenStore;
             this.AdaRefreshTokenStore = new SecretStore(AdalRefreshPrefx);
             this.VstsAuthority = new VstsAzureAuthority(isPPE ? AzureAuthority.PPEAuthorityHostUrlBase : null);
+            this.PatVersion = patVersion;
         }
         /// <summary>
         /// Invoked by a derived classes implementation. Allows custom back-end implementations to be used.
@@ -43,20 +45,23 @@ namespace Microsoft.Alm.Authentication
         protected BaseVstsAuthentication(
             VstsTokenScope tokenScope,
             ICredentialStore personalAccessTokenStore,
+            string patVersion,
             ITokenStore adaRefreshTokenStore = null,
             bool isPPE = false)
-            : this(tokenScope, personalAccessTokenStore, isPPE)
+            : this(tokenScope, personalAccessTokenStore, patVersion, isPPE)
         {
             this.AdaRefreshTokenStore = adaRefreshTokenStore ?? this.AdaRefreshTokenStore;
             this.VstsAdalTokenCache = new VstsAdalTokenCache();
             this.VstsIdeTokenCache = new TokenRegistry();
         }
+
         internal BaseVstsAuthentication(
             ICredentialStore personalAccessTokenStore,
             ITokenStore adaRefreshTokenStore,
             ITokenStore vstsIdeTokenCache,
-            IVstsAuthority vstsAuthority)
-            : this(VstsTokenScope.ProfileRead, personalAccessTokenStore, false)
+            IVstsAuthority vstsAuthority,
+            string patVersion)
+            : this(VstsTokenScope.ProfileRead, personalAccessTokenStore, patVersion, false)
         {
             Debug.Assert(adaRefreshTokenStore != null, "The adaRefreshTokenStore paramter is null or invalid.");
             Debug.Assert(vstsIdeTokenCache != null, "The vstsIdeTokenCache paramter is null or invalid.");
@@ -213,9 +218,11 @@ namespace Microsoft.Alm.Authentication
             Trace.WriteLine("BaseVstsAuthentication::GeneratePersonalAccessToken");
 
             Token personalAccessToken;
-            if ((personalAccessToken = await this.VstsAuthority.GeneratePersonalAccessToken(targetUri, accessToken, TokenScope, requestCompactToken)) != null)
+            if ((personalAccessToken = await this.VstsAuthority.GeneratePersonalAccessToken(targetUri, accessToken, TokenScope, requestCompactToken, PatVersion)) != null)
             {
-                this.PersonalAccessTokenStore.WriteCredentials(targetUri, (Credential)personalAccessToken);
+                var credential = (Credential)personalAccessToken;
+                credential.Comment = this.PatVersion;
+                this.PersonalAccessTokenStore.WriteCredentials(targetUri, credential);
             }
 
             return personalAccessToken != null;
@@ -233,7 +240,7 @@ namespace Microsoft.Alm.Authentication
 
             Trace.WriteLine("BaseVstsAuthentication::StoreRefreshToken");
 
-            this.AdaRefreshTokenStore.WriteToken(targetUri, refreshToken);
+            this.AdaRefreshTokenStore.WriteToken(targetUri, refreshToken, PatVersion);
         }
 
         /// <summary>
@@ -311,6 +318,7 @@ namespace Microsoft.Alm.Authentication
             VstsTokenScope scope,
             ICredentialStore personalAccessTokenStore,
             ITokenStore adaRefreshTokenStore,
+            string patVersion,
             out BaseAuthentication authentication)
         {
             Trace.WriteLine("BaseVstsAuthentication::DetectAuthority");
@@ -322,12 +330,12 @@ namespace Microsoft.Alm.Authentication
                 if (tenantId == Guid.Empty)
                 {
                     Trace.WriteLine("   MSA authority detected");
-                    authentication = new VstsMsaAuthentication(scope, personalAccessTokenStore, adaRefreshTokenStore);
+                    authentication = new VstsMsaAuthentication(scope, personalAccessTokenStore, patVersion, adaRefreshTokenStore);
                 }
                 else
                 {
                     Trace.WriteLine("   AAD authority for tenant '" + tenantId + "' detected");
-                    authentication = new VstsAadAuthentication(tenantId, scope, personalAccessTokenStore, adaRefreshTokenStore);
+                    authentication = new VstsAadAuthentication(tenantId, scope, personalAccessTokenStore, patVersion, adaRefreshTokenStore);
                     (authentication as VstsAadAuthentication).TenantId = tenantId;
                 }
             }

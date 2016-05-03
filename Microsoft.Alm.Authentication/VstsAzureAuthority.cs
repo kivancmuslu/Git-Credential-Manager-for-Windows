@@ -36,7 +36,7 @@ namespace Microsoft.Alm.Authentication
         /// <param name="tokenScope"></param>
         /// <param name="requireCompactToken"></param>
         /// <returns></returns>
-        public async Task<Token> GeneratePersonalAccessToken(TargetUri targetUri, Token accessToken, VstsTokenScope tokenScope, bool requireCompactToken)
+        public async Task<Token> GeneratePersonalAccessToken(TargetUri targetUri, Token accessToken, VstsTokenScope tokenScope, bool requireCompactToken, string version)
         {
             const string AccessTokenHeader = "Bearer";
 

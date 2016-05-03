@@ -95,7 +95,7 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         /// <param name="targetUri"></param>
         /// <param name="token"></param>
-        public void WriteToken(TargetUri targetUri, Token token)
+        public void WriteToken(TargetUri targetUri, Token token, string comment = null)
         {
             // we've decided to not support registry writes until the format is standardized
             throw new NotSupportedException("Writes to the registry are not supported by this library.");

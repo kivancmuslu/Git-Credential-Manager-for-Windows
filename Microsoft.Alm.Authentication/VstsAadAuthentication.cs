@@ -27,11 +27,14 @@ namespace Microsoft.Alm.Authentication
             Guid tenantId,
             VstsTokenScope tokenScope,
             ICredentialStore personalAccessTokenStore,
+            string patVersion,
             ITokenStore adaRefreshTokenStore = null,
             bool isPPE = false)
             : base(tokenScope,
                    personalAccessTokenStore,
-                   adaRefreshTokenStore, isPPE)
+                   patVersion,
+                   adaRefreshTokenStore, 
+                   isPPE)
         {
             if (tenantId == Guid.Empty)
             {
@@ -60,11 +63,13 @@ namespace Microsoft.Alm.Authentication
             ICredentialStore personalAccessTokenStore,
             ITokenStore adaRefreshTokenStore,
             ITokenStore vstsIdeTokenCache,
-            IVstsAuthority vstsAuthority)
+            IVstsAuthority vstsAuthority,
+            string patVersion)
             : base(personalAccessTokenStore,
                    adaRefreshTokenStore,
                    vstsIdeTokenCache,
-                   vstsAuthority)
+                   vstsAuthority,
+                   patVersion)
         { }
 
         /// <summary>

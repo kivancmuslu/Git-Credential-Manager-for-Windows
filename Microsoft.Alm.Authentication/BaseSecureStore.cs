@@ -57,8 +57,9 @@ namespace Microsoft.Alm.Authentication
                                     ? Marshal.PtrToStringUni(credStruct.CredentialBlob, passwordLength / sizeof(char))
                                     : String.Empty;
                     string username = credStruct.UserName ?? String.Empty;
+                    string comment = credStruct.Comment ?? String.Empty;
 
-                    credentials = new Credential(username, password);
+                    credentials = new Credential(username, password, comment);
                 }
             }
             finally
@@ -122,6 +123,7 @@ namespace Microsoft.Alm.Authentication
                 Persist = NativeMethods.CredentialPersist.LocalMachine,
                 AttributeCount = 0,
                 UserName = credentials.Username,
+                Comment = credentials.Comment
             };
             try
             {
@@ -140,7 +142,7 @@ namespace Microsoft.Alm.Authentication
             }
         }
 
-        protected void WriteToken(string targetName, Token token)
+        protected void WriteToken(string targetName, Token token, string comment)
         {
             Trace.WriteLine("BaseSecureStore::WriteToken");
 
@@ -158,6 +160,7 @@ namespace Microsoft.Alm.Authentication
                         Persist = NativeMethods.CredentialPersist.LocalMachine,
                         AttributeCount = 0,
                         UserName = name,
+                        Comment = comment
                     };
                     try
                     {

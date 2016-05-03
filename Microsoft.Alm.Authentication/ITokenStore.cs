@@ -23,6 +23,6 @@ namespace Microsoft.Alm.Authentication
         /// Unique identifier for the token, used when reading back from storage.
         /// </param>
         /// <param name="token">The <see cref="Token"/> to be written.</param>
-        void WriteToken(TargetUri targetUri, Token token);
+        void WriteToken(TargetUri targetUri, Token token, string comment = null);
     }
 }

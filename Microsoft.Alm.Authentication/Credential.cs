@@ -14,10 +14,11 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         /// <param name="username">The username value of the <see cref="Credential"/>.</param>
         /// <param name="password">The password value of the <see cref="Credential"/>.</param>
-        public Credential(string username, string password)
+        public Credential(string username, string password, string comment = null)
         {
             this.Username = username ?? String.Empty;
             this.Password = password ?? String.Empty;
+            this.Comment = comment;
         }
         /// <summary>
         /// Creates a credential object with only a username.
@@ -31,10 +32,16 @@ namespace Microsoft.Alm.Authentication
         /// Secret related to the username.
         /// </summary>
         public readonly string Password;
+
         /// <summary>
         /// Unique identifier of the user.
         /// </summary>
         public readonly string Username;
+
+        /// <summary>
+        /// A comment string regarding the credential
+        /// </summary>
+        public string Comment;
 
         /// <summary>
         /// Compares an object to this <see cref="Credential"/> for equality.
