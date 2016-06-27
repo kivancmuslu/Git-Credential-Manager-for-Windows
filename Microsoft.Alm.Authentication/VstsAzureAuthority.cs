@@ -385,7 +385,14 @@ namespace Microsoft.Alm.Authentication
             {
                 if ((targetUri.Port != 80 && targetUri.Port != 443))
                 {
-                    sessionTokenPPEUrl = string.Format(SessionTokenUrlFormat, targetUri.Scheme, TokenAuthHostDevBox, PreProdHost, "9080");
+                    if (targetUri.Scheme.Equals("https"))
+                    {
+                        sessionTokenPPEUrl = string.Format(SessionTokenUrlFormat, targetUri.Scheme, TokenAuthHostDevBox, PreProdHost, "9443");
+                    }
+                    else
+                    {
+                        sessionTokenPPEUrl = string.Format(SessionTokenUrlFormat, targetUri.Scheme, TokenAuthHostDevBox, PreProdHost, "9080");
+                    }
                 }
                 else
                 {
