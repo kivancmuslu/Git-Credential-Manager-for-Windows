@@ -1,4 +1,29 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 
 namespace Microsoft.Alm.Authentication
 {
@@ -14,11 +39,10 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         /// <param name="username">The username value of the <see cref="Credential"/>.</param>
         /// <param name="password">The password value of the <see cref="Credential"/>.</param>
-        public Credential(string username, string password, string comment = null)
+        public Credential(string username, string password)
         {
             this.Username = username ?? String.Empty;
             this.Password = password ?? String.Empty;
-            this.Comment = comment;
         }
         /// <summary>
         /// Creates a credential object with only a username.
@@ -39,11 +63,6 @@ namespace Microsoft.Alm.Authentication
         public readonly string Username;
 
         /// <summary>
-        /// A comment string regarding the credential
-        /// </summary>
-        public string Comment;
-
-        /// <summary>
         /// Compares an object to this <see cref="Credential"/> for equality.
         /// </summary>
         /// <param name="obj">The object to compare.</param>
@@ -52,6 +71,7 @@ namespace Microsoft.Alm.Authentication
         {
             return this == obj as Credential;
         }
+
         /// <summary>
         /// Compares a <see cref="Credential"/> to this <see cref="Credential"/> for equality.
         /// </summary>
@@ -61,6 +81,7 @@ namespace Microsoft.Alm.Authentication
         {
             return this == other;
         }
+
         /// <summary>
         /// Gets a hash code based on the contents of the <see cref="Credential"/>.
         /// </summary>
@@ -71,17 +92,6 @@ namespace Microsoft.Alm.Authentication
             {
                 return Username.GetHashCode() + 7 * Password.GetHashCode();
             }
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static void Validate(Credential credentials)
-        {
-            if (credentials == null)
-                throw new ArgumentNullException("credentials", "The Credentials object cannot be null");
-            if (credentials.Password.Length > NativeMethods.Credential.PasswordMaxLength)
-                throw new ArgumentOutOfRangeException("credentials", string.Format("The Password field of the Credentials object cannot be longer than {0} characters", NativeMethods.Credential.UsernameMaxLength));
-            if (credentials.Username.Length > NativeMethods.Credential.UsernameMaxLength)
-                throw new ArgumentOutOfRangeException("credentials", string.Format("The Username field of the Credentials object cannot be longer than {0} characters", NativeMethods.Credential.UsernameMaxLength));
         }
 
         /// <summary>
@@ -100,6 +110,7 @@ namespace Microsoft.Alm.Authentication
             return String.Equals(credential1.Username, credential2.Username, StringComparison.Ordinal)
                 && String.Equals(credential1.Password, credential2.Password, StringComparison.Ordinal);
         }
+
         /// <summary>
         /// Compares two credentials for inequality.
         /// </summary>

@@ -1,4 +1,29 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -8,58 +33,110 @@ namespace Microsoft.Alm.Git
 {
     public sealed class Configuration
     {
-        public static readonly string[] LegalConfigNames = { "local", "global", "system" };
-
         private const char HostSplitCharacter = '.';
 
         private static readonly Lazy<Regex> CommentRegex = new Lazy<Regex>(() => new Regex(@"^\s*[#;]", RegexOptions.Compiled | RegexOptions.CultureInvariant));
         private static readonly Lazy<Regex> KeyValueRegex = new Lazy<Regex>(() => new Regex(@"^\s*(\w+)\s*=\s*(.+)", RegexOptions.Compiled | RegexOptions.CultureInvariant));
         private static readonly Lazy<Regex> SectionRegex = new Lazy<Regex>(() => new Regex(@"^\s*\[\s*(\w+)\s*(\""[^\]]+){0,1}\]", RegexOptions.Compiled | RegexOptions.CultureInvariant));
 
-        public Configuration(string directory)
+        public Configuration(string directory, bool loadLocal, bool loadSystem)
         {
             if (String.IsNullOrWhiteSpace(directory))
                 throw new ArgumentNullException("directory");
             if (!Directory.Exists(directory))
                 throw new DirectoryNotFoundException(directory);
 
-            LoadGitConfiguation(directory);
+            LoadGitConfiguration(directory);
         }
 
         public Configuration()
-            : this(Environment.CurrentDirectory)
+            : this(Environment.CurrentDirectory, false, false)
         { }
 
-        internal Configuration(TextReader configReader)
+        internal Configuration(TextReader configReader, ConfigurationLevel level = ConfigurationLevel.Local)
         {
-            ParseGitConfig(configReader, _values);
+            ParseGitConfig(configReader, _values[level]);
         }
 
-        private readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public IEnumerable<ConfigurationLevel> Levels
+        {
+            get
+            {
+                yield return ConfigurationLevel.Local;
+                yield return ConfigurationLevel.Global;
+                yield return ConfigurationLevel.Xdg;
+                yield return ConfigurationLevel.System;
+                yield return ConfigurationLevel.Portable;
+            }
+        }
+
+        private readonly Dictionary<ConfigurationLevel, Dictionary<string, string>> _values = new Dictionary<ConfigurationLevel, Dictionary<string, string>>()
+            {
+                { ConfigurationLevel.Global, new Dictionary<string, string>(Entry.KeyComparer) },
+                { ConfigurationLevel.Local, new Dictionary<string, string>(Entry.KeyComparer) },
+                { ConfigurationLevel.Portable, new Dictionary<string, string>(Entry.KeyComparer) },
+                { ConfigurationLevel.System, new Dictionary<string, string>(Entry.KeyComparer) },
+                { ConfigurationLevel.Xdg, new Dictionary<string, string>(Entry.KeyComparer) },
+            };
 
         public string this[string key]
         {
-            get { return _values[key]; }
+            get
+            {
+                foreach (var level in Levels)
+                {
+                    if (_values[level].ContainsKey(key))
+                        return _values[level][key];
+                }
+
+                return null;
+            }
+        }
+
+        public int Count
+        {
+            get
+            {
+                return _values[ConfigurationLevel.Global].Count
+                     + _values[ConfigurationLevel.Local].Count
+                     + _values[ConfigurationLevel.Portable].Count
+                     + _values[ConfigurationLevel.System].Count
+                     + _values[ConfigurationLevel.Xdg].Count;
+            }
         }
 
         public bool ContainsKey(string key)
         {
-            return _values.ContainsKey(key);
+            return ContainsKey(ConfigurationLevel.All, key);
+        }
+
+        public bool ContainsKey(ConfigurationLevel levels, string key)
+        {
+            foreach (var level in Levels)
+            {
+                if ((level & levels) != 0
+                    && _values[level].ContainsKey(key))
+                    return true;
+            }
+
+            return false;
         }
 
         public bool TryGetEntry(string prefix, string key, string suffix, out Entry entry)
         {
-            Debug.Assert(prefix != null, "The prefix parameter is null");
-            Debug.Assert(suffix != null, "The suffix parameter is null");
+            if (ReferenceEquals(prefix, null))
+                throw new ArgumentNullException(nameof(prefix));
+            if (ReferenceEquals(suffix, null))
+                throw new ArgumentNullException(nameof(suffix));
 
             string match = String.IsNullOrEmpty(key)
                 ? String.Format("{0}.{1}", prefix, suffix)
                 : String.Format("{0}.{1}.{2}", prefix, key, suffix);
 
             // if there's a match, return it
-            if (_values.ContainsKey(match))
+            if (ContainsKey(match))
             {
-                entry = new Entry(match, _values[match]);
+                entry = new Entry(match, this[match]);
                 return true;
             }
 
@@ -70,9 +147,8 @@ namespace Microsoft.Alm.Git
 
         public bool TryGetEntry(string prefix, Uri targetUri, string key, out Entry entry)
         {
-            Debug.Assert(key != null, "The key parameter is null");
-
-            Trace.WriteLine("Configuration::TryGetEntry");
+            if (ReferenceEquals(key, null))
+                throw new ArgumentNullException(nameof(key));
 
             if (targetUri != null)
             {
@@ -106,73 +182,77 @@ namespace Microsoft.Alm.Git
             return false;
         }
 
-        public void LoadGitConfiguation(string directory)
+        public void LoadGitConfiguration(string directory)
         {
             string portableConfig = null;
             string systemConfig = null;
             string globalConfig = null;
             string localConfig = null;
 
-            Trace.WriteLine("Configuration::LoadGitConfiguation");
-
             // read Git's four configs from lowest priority to highest, overwriting values as
             // higher priority configurations are parsed, storing them in a handy lookup table
 
-            // find and parse Git's protable config
+            // find and parse Git's portable config
             if (Where.GitPortableConfig(out portableConfig))
             {
-                ParseGitConfig(portableConfig);
+                ParseGitConfig(ConfigurationLevel.Portable, portableConfig);
+
+                Git.Trace.WriteLine($"git portable config read, {Count} entries.");
             }
 
             // find and parse Git's system config
-            if (Where.GitSystemConfig(out systemConfig))
+            if (Where.GitSystemConfig(null, out systemConfig))
             {
-                ParseGitConfig(systemConfig);
+                ParseGitConfig(ConfigurationLevel.System, systemConfig);
+
+                Git.Trace.WriteLine($"git system config read, {Count} entries.");
             }
 
             // find and parse Git's global config
             if (Where.GitGlobalConfig(out globalConfig))
             {
-                ParseGitConfig(globalConfig);
+                ParseGitConfig(ConfigurationLevel.Global, globalConfig);
+
+                Git.Trace.WriteLine($"git global config read, {Count} entries.");
             }
 
             // find and parse Git's local config
             if (Where.GitLocalConfig(directory, out localConfig))
             {
-                ParseGitConfig(localConfig);
-            }
+                ParseGitConfig(ConfigurationLevel.Local, localConfig);
 
-            foreach (var pair in _values)
-            {
-                Trace.WriteLine(String.Format("   {0} = {1}", pair.Key, pair.Value));
+                Git.Trace.WriteLine($"git local config read, {Count} entries.");
             }
         }
 
-        private void ParseGitConfig(string configPath)
+        private void ParseGitConfig(ConfigurationLevel level, string configPath)
         {
-            Debug.Assert(!String.IsNullOrWhiteSpace(configPath), "The configPath parameter is null or invalid.");
-            Debug.Assert(File.Exists(configPath), "The configPath parameter references a non-existent file.");
-            Debug.Assert(_values != null, "The configPath parameter is null or invalid.");
+            Debug.Assert(Enum.IsDefined(typeof(ConfigurationLevel), level), $"The `{nameof(level)}` parameter is not defined.");
+            Debug.Assert(!String.IsNullOrWhiteSpace(configPath), $"The `{nameof(configPath)}` parameter is null or invalid.");
+            Debug.Assert(File.Exists(configPath), $"The `{nameof(configPath)}` parameter references a non-existent file.");
 
-            Trace.WriteLine("Configuration::ParseGitConfig");
-
+            if (!_values.ContainsKey(level))
+                return;
             if (!File.Exists(configPath))
                 return;
 
             using (var sr = new StreamReader(File.OpenRead(configPath)))
             {
-                ParseGitConfig(sr, _values);
+                ParseGitConfig(sr, _values[level]);
             }
         }
 
-        internal static void ParseGitConfig(TextReader tr, IDictionary<string, string> destination)
+        internal static void ParseGitConfig(TextReader reader, IDictionary<string, string> destination)
         {
+            Debug.Assert(reader != null, $"The `{nameof(reader)}` parameter is null.");
+            Debug.Assert(destination != null, $"The `{nameof(destination)}` parameter is null.");
+
             Match match = null;
             string section = null;
 
             // parse each line in the config independently - Git's configs do not accept multi-line values
             string line;
-            while ((line = tr.ReadLine()) != null)
+            while ((line = reader.ReadLine()) != null)
             {
                 // skip empty and commented lines
                 if (String.IsNullOrWhiteSpace(line))
@@ -247,8 +327,11 @@ namespace Microsoft.Alm.Git
             }
         }
 
-        public struct Entry
+        public struct Entry : IEquatable<Entry>
         {
+            public static readonly StringComparer KeyComparer = StringComparer.OrdinalIgnoreCase;
+            public static readonly StringComparer ValueComparer = StringComparer.OrdinalIgnoreCase;
+
             public Entry(string key, string value)
             {
                 Key = key;
@@ -257,6 +340,28 @@ namespace Microsoft.Alm.Git
 
             public readonly string Key;
             public readonly string Value;
+
+            public override bool Equals(object obj)
+            {
+                return (obj is Entry)
+                        && Equals((Entry)obj);
+            }
+
+            public bool Equals(Entry other)
+            {
+                return KeyComparer.Equals(Key, other.Key)
+                    && ValueComparer.Equals(Value, other.Value);
+            }
+
+            public override int GetHashCode()
+            {
+                return KeyComparer.GetHashCode(Key);
+            }
+
+            public override string ToString()
+            {
+                return String.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} = {1}", Key, Value);
+            }
         }
 
         [Flags]

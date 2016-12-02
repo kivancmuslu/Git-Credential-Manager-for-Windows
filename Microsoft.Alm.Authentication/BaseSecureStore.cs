@@ -1,4 +1,29 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -12,8 +37,6 @@ namespace Microsoft.Alm.Authentication
 
         protected void Delete(string targetName)
         {
-            Trace.WriteLine("BaseSecureStore::Delete");
-
             try
             {
                 if (!NativeMethods.CredDelete(targetName, NativeMethods.CredentialType.Generic, 0))
@@ -23,12 +46,16 @@ namespace Microsoft.Alm.Authentication
                     {
                         case NativeMethods.Win32Error.NotFound:
                         case NativeMethods.Win32Error.NoSuchLogonSession:
-                            Trace.WriteLine("   credentials not found for " + targetName);
+                            Git.Trace.WriteLine($"credentials not found for '{targetName}'.");
                             break;
 
                         default:
                             throw new Win32Exception(error, "Failed to delete credentials for " + targetName);
                     }
+                }
+                else
+                {
+                    Git.Trace.WriteLine($"credentials for '{targetName}' deleted from store.");
                 }
             }
             catch (Exception exception)
@@ -39,10 +66,53 @@ namespace Microsoft.Alm.Authentication
 
         protected abstract string GetTargetName(TargetUri targetUri);
 
+        protected void PurgeCredentials(string @namespace)
+        {
+            string filter = @namespace + "*";
+            int count;
+            IntPtr credentialArrayPtr;
+
+            if (NativeMethods.CredEnumerate(filter, 0, out count, out credentialArrayPtr))
+            {
+                for (int i = 0; i < count; i += 1)
+                {
+                    int offset = i * Marshal.SizeOf(typeof(IntPtr));
+                    IntPtr credentialPtr = Marshal.ReadIntPtr(credentialArrayPtr, offset);
+
+                    if (credentialPtr != IntPtr.Zero)
+                    {
+                        NativeMethods.Credential credential = Marshal.PtrToStructure<NativeMethods.Credential>(credentialPtr);
+
+                        if (!NativeMethods.CredDelete(credential.TargetName, credential.Type, 0))
+                        {
+                            int error = Marshal.GetLastWin32Error();
+                            if (error != NativeMethods.Win32Error.FileNotFound)
+                            {
+                                Debug.Fail("Failed with error code " + error.ToString("X"));
+                            }
+                        }
+                        else
+                        {
+                            Git.Trace.WriteLine($"credentials for '{@namespace}' purged from store.");
+                        }
+                    }
+                }
+
+                NativeMethods.CredFree(credentialArrayPtr);
+            }
+            else
+            {
+                int error = Marshal.GetLastWin32Error();
+                if (error != NativeMethods.Win32Error.FileNotFound
+                    && error != NativeMethods.Win32Error.NotFound)
+                {
+                    Debug.Fail("Failed with error code " + error.ToString("X"));
+                }
+            }
+        }
+
         protected Credential ReadCredentials(string targetName)
         {
-            Trace.WriteLine("BaseSecureStore::ReadCredentials");
-
             Credential credentials = null;
             IntPtr credPtr = IntPtr.Zero;
 
@@ -57,9 +127,10 @@ namespace Microsoft.Alm.Authentication
                                     ? Marshal.PtrToStringUni(credStruct.CredentialBlob, passwordLength / sizeof(char))
                                     : String.Empty;
                     string username = credStruct.UserName ?? String.Empty;
-                    string comment = credStruct.Comment ?? String.Empty;
 
-                    credentials = new Credential(username, password, comment);
+                    credentials = new Credential(username, password);
+
+                    Git.Trace.WriteLine($"credentials for '{targetName}' read from store.");
                 }
             }
             finally
@@ -75,8 +146,6 @@ namespace Microsoft.Alm.Authentication
 
         protected Token ReadToken(string targetName)
         {
-            Trace.WriteLine("BaseSecureStore::ReadToken");
-
             Token token = null;
             IntPtr credPtr = IntPtr.Zero;
 
@@ -96,6 +165,8 @@ namespace Microsoft.Alm.Authentication
                         {
                             Token.Deserialize(bytes, type, out token);
                         }
+
+                        Git.Trace.WriteLine($"token for '{targetName}' read from store.");
                     }
                 }
             }
@@ -112,8 +183,6 @@ namespace Microsoft.Alm.Authentication
 
         protected void WriteCredential(string targetName, Credential credentials)
         {
-            Trace.WriteLine("BaseSecureStore::WriteCredential");
-
             NativeMethods.Credential credential = new NativeMethods.Credential()
             {
                 Type = NativeMethods.CredentialType.Generic,
@@ -123,7 +192,6 @@ namespace Microsoft.Alm.Authentication
                 Persist = NativeMethods.CredentialPersist.LocalMachine,
                 AttributeCount = 0,
                 UserName = credentials.Username,
-                Comment = credentials.Comment
             };
             try
             {
@@ -132,6 +200,8 @@ namespace Microsoft.Alm.Authentication
                     int errorCode = Marshal.GetLastWin32Error();
                     throw new Exception("Failed to write credentials", new Win32Exception(errorCode));
                 }
+
+                Git.Trace.WriteLine($"credentials for '{targetName}' written to store.");
             }
             finally
             {
@@ -142,10 +212,8 @@ namespace Microsoft.Alm.Authentication
             }
         }
 
-        protected void WriteToken(string targetName, Token token, string comment)
+        protected void WriteToken(string targetName, Token token)
         {
-            Trace.WriteLine("BaseSecureStore::WriteToken");
-
             byte[] bytes = null;
             if (Token.Serialize(token, out bytes))
             {
@@ -160,7 +228,6 @@ namespace Microsoft.Alm.Authentication
                         Persist = NativeMethods.CredentialPersist.LocalMachine,
                         AttributeCount = 0,
                         UserName = name,
-                        Comment = comment
                     };
                     try
                     {
@@ -172,6 +239,8 @@ namespace Microsoft.Alm.Authentication
                             int errorCode = Marshal.GetLastWin32Error();
                             throw new Exception("Failed to write credentials", new Win32Exception(errorCode));
                         }
+
+                        Git.Trace.WriteLine($"token for '{targetName}' written to store.");
                     }
                     finally
                     {
@@ -185,12 +254,32 @@ namespace Microsoft.Alm.Authentication
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void ValidateCredential(Credential credentials)
+        {
+            if (ReferenceEquals(credentials, null))
+                throw new ArgumentNullException(nameof(credentials));
+            if (credentials.Password.Length > NativeMethods.Credential.PasswordMaxLength)
+                throw new ArgumentOutOfRangeException(nameof(credentials.Password));
+            if (credentials.Username.Length > NativeMethods.Credential.UsernameMaxLength)
+                throw new ArgumentOutOfRangeException(nameof(credentials.Username));
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static void ValidateTargetUri(TargetUri targetUri)
         {
-            if (targetUri == null)
-                throw new ArgumentNullException("targetUri");
-            if (!targetUri.IsAbsoluteUri || !targetUri.ActualUri.IsAbsoluteUri)
-                throw new ArgumentException("The target must be an absolute URI.", "targetUri");
+            if (ReferenceEquals(targetUri, null))
+                throw new ArgumentNullException(nameof(targetUri));
+            if (!targetUri.IsAbsoluteUri)
+                throw new ArgumentException(nameof(targetUri.IsAbsoluteUri));
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void ValidateToken(Token token)
+        {
+            if (ReferenceEquals(token, null))
+                throw new ArgumentNullException(nameof(token));
+            if (String.IsNullOrEmpty(token.Value))
+                throw new ArgumentException(nameof(token.Value));
         }
     }
 }

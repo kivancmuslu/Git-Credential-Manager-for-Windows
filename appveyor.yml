@@ -1,0 +1,24 @@
+version: "{build}"
+
+clone_depth: 10
+
+configuration:
+  - Release
+
+platform: Any CPU
+
+before_build:
+  - nuget restore
+
+build_script:
+  - msbuild "Microsoft.Alm.sln" /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" /consoleloggerparameters:Verbosity=minimal /maxcpucount /nodeReuse:true /target:"Build" /property:Configuration="%configuration%";Platform="%platform%";RunCodeAnalysis=true
+
+test:
+  assemblies:
+    - '*.Test\bin\$(configuration)\*.Test.dll'
+
+cache:
+  - packages -> **\packages.config
+
+matrix:
+  fast_finish: true

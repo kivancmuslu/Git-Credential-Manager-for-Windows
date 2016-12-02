@@ -1,5 +1,31 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 
 namespace Microsoft.Alm.Authentication
@@ -8,18 +34,12 @@ namespace Microsoft.Alm.Authentication
     {
         public const string DefaultAuthorityHost = AzureAuthority.AuthorityHostUrlBase + "/live.com";
 
-        public VstsMsaAuthentication(
-            VstsTokenScope tokenScope,
-            ICredentialStore personalAccessTokenStore,
-            string patVersion,
-            ITokenStore adaRefreshTokenStore = null)
-            : base(tokenScope,
-                   personalAccessTokenStore,
-                   patVersion,
-                   adaRefreshTokenStore)
+        public VstsMsaAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore)
+            : base(tokenScope, personalAccessTokenStore)
         {
             this.VstsAuthority = new VstsAzureAuthority(DefaultAuthorityHost);
         }
+
         /// <summary>
         /// Test constructor which allows for using fake credential stores
         /// </summary>
@@ -29,14 +49,11 @@ namespace Microsoft.Alm.Authentication
         /// <param name="liveAuthority"></param>
         internal VstsMsaAuthentication(
             ICredentialStore personalAccessTokenStore,
-            ITokenStore adaRefreshTokenStore,
             ITokenStore vstsIdeTokenCache,
             IVstsAuthority liveAuthority)
             : base(personalAccessTokenStore,
-                   adaRefreshTokenStore,
                    vstsIdeTokenCache,
-                   liveAuthority,
-                   string.Empty)
+                   liveAuthority)
         { }
 
         /// <summary>
@@ -49,25 +66,22 @@ namespace Microsoft.Alm.Authentication
         /// <param name="requireCompactToken">
         /// True if a compact access token is required; false if a standard token is acceptable.
         /// </param>
-        /// <returns>True if successfull; otherwise false.</returns>
-        public bool InteractiveLogon(TargetUri targetUri, bool requireCompactToken)
+        /// <returns>A <see cref="Credential"/> for packing into a basic authentication header;
+        /// otherwise <see langword="null"/>.</returns>
+        public async Task<Credential> InteractiveLogon(TargetUri targetUri, bool requireCompactToken)
         {
             const string QueryParameters = "domain_hint=live.com&display=popup&site_id=501454&nux=1";
 
             BaseSecureStore.ValidateTargetUri(targetUri);
 
-            Trace.WriteLine("VstsMsaAuthentication::InteractiveLogon");
-
             try
             {
-                TokenPair tokens;
-                if ((tokens = this.VstsAuthority.AcquireToken(targetUri, this.ClientId, this.Resource, new Uri(RedirectUrl), QueryParameters)) != null)
+                Token token;
+                if ((token = await this.VstsAuthority.InteractiveAcquireToken(targetUri, this.ClientId, this.Resource, new Uri(RedirectUrl), QueryParameters)) != null)
                 {
-                    Trace.WriteLine("   token successfully acquired.");
+                    Git.Trace.WriteLine($"token '{targetUri}' successfully acquired.");
 
-                    this.StoreRefreshToken(targetUri, tokens.RefeshToken);
-
-                    return this.GeneratePersonalAccessToken(targetUri, tokens.AccessToken, requireCompactToken).Result;
+                    return await this.GeneratePersonalAccessToken(targetUri, token, requireCompactToken);
                 }
             }
             catch (AdalException exception)
@@ -75,9 +89,10 @@ namespace Microsoft.Alm.Authentication
                 Debug.Write(exception);
             }
 
-            Trace.WriteLine("   failed to acquire token.");
-            return false;
+            Git.Trace.WriteLine($"failed to acquire token for '{targetUri}'.");
+            return null;
         }
+
         /// <summary>
         /// Sets credentials for future use with this authentication object.
         /// </summary>
@@ -86,17 +101,10 @@ namespace Microsoft.Alm.Authentication
         /// The uniform resource indicator of the resource access tokens are being set for.
         /// </param>
         /// <param name="credentials">The credentials being set.</param>
-        /// <returns>True if successful; false otherwise.</returns>
-        public override bool SetCredentials(TargetUri targetUri, Credential credentials)
+        public override void SetCredentials(TargetUri targetUri, Credential credentials)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
-            Credential.Validate(credentials);
-
-            Trace.WriteLine("VstsMsaAuthentication::SetCredentials");
-            Trace.WriteLine("   setting MSA credentials is not supported");
-
-            // does nothing with VSTS MSA backed accounts
-            return false;
+            BaseSecureStore.ValidateCredential(credentials);
         }
     }
 }

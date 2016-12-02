@@ -1,4 +1,29 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -17,10 +42,30 @@ namespace Microsoft.Alm.Authentication
 
         public SecretCache(string @namespace, Secret.UriNameConversion getTargetName = null)
         {
-            Debug.Assert(!String.IsNullOrWhiteSpace(@namespace), "The namespace parameter is null or invalid");
+            if (String.IsNullOrWhiteSpace(@namespace))
+                throw new ArgumentNullException(@namespace);
 
             _namespace = @namespace;
             _getTargetName = getTargetName ?? Secret.UriToName;
+        }
+
+        internal SecretCache(ICredentialStore credentialStore)
+        {
+            if (credentialStore == null)
+                throw new ArgumentNullException(nameof(credentialStore));
+
+            _namespace = credentialStore.Namespace;
+            _getTargetName = credentialStore.UriNameConversion;
+        }
+
+        public string Namespace
+        {
+            get { return _namespace; }
+        }
+
+        public Secret.UriNameConversion UriNameConversion
+        {
+            get { return _getTargetName; }
         }
 
         private readonly string _namespace;
@@ -33,8 +78,6 @@ namespace Microsoft.Alm.Authentication
         public void DeleteCredentials(TargetUri targetUri)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
-
-            Trace.WriteLine("SecretCache::DeleteCredentials");
 
             string targetName = this.GetTargetName(targetUri);
 
@@ -55,8 +98,6 @@ namespace Microsoft.Alm.Authentication
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
 
-            Trace.WriteLine("SecretCache::DeleteToken");
-
             string targetName = this.GetTargetName(targetUri);
 
             lock (_cache)
@@ -72,14 +113,12 @@ namespace Microsoft.Alm.Authentication
         /// Reads credentials for a target URI from the credential store
         /// </summary>
         /// <param name="targetUri">The URI of the target for which credentials are being read</param>
-        /// <param name="credentials">The credentials from the store; <see langword="null"/> if failure</param>
-        /// <returns><see langword="true"/> if success; <see langword="false"/> if failure</returns>
-        public bool ReadCredentials(TargetUri targetUri, out Credential credentials)
+        /// <returns>A <see cref="Credential"/> from the store; <see langword="null"/> if failure.</returns>
+        public Credential ReadCredentials(TargetUri targetUri)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
 
-            Trace.WriteLine("SecretCache::ReadCredentials");
-
+            Credential credentials = null;
             string targetName = this.GetTargetName(targetUri);
 
             lock (_cache)
@@ -94,21 +133,19 @@ namespace Microsoft.Alm.Authentication
                 }
             }
 
-            return credentials != null;
+            return credentials;
         }
 
         /// <summary>
         /// Gets a token from the cache.
         /// </summary>
         /// <param name="targetUri">The key which to find the token.</param>
-        /// <param name="token">The token if successful; otherwise <see langword="null"/>.</param>
-        /// <returns><see langword="true"/> if successful; <see langword="false"/> otherwise.</returns>
-        public bool ReadToken(TargetUri targetUri, out Token token)
+        /// <returns>A <see cref="Token"/> if successful;  otherwise <see langword="null"/>.</returns>
+        public Token ReadToken(TargetUri targetUri)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
 
-            Trace.WriteLine("SecretCache::ReadToken");
-
+            Token token = null;
             string targetName = this.GetTargetName(targetUri);
 
             lock (_cache)
@@ -123,7 +160,7 @@ namespace Microsoft.Alm.Authentication
                 }
             }
 
-            return token != null;
+            return token;
         }
 
         /// <summary>
@@ -134,9 +171,7 @@ namespace Microsoft.Alm.Authentication
         public void WriteCredentials(TargetUri targetUri, Credential credentials)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
-            Credential.Validate(credentials);
-
-            Trace.WriteLine("SecretCache::WriteCredentials");
+            BaseSecureStore.ValidateCredential(credentials);
 
             string targetName = this.GetTargetName(targetUri);
 
@@ -158,12 +193,10 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         /// <param name="targetUri">The key which to index the token by.</param>
         /// <param name="token">The token to write to the cache.</param>
-        public void WriteToken(TargetUri targetUri, Token token, string comment = null)
+        public void WriteToken(TargetUri targetUri, Token token)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
             Token.Validate(token);
-
-            Trace.WriteLine("SecretCache::WriteToken");
 
             string targetName = this.GetTargetName(targetUri);
 
@@ -187,9 +220,7 @@ namespace Microsoft.Alm.Authentication
         /// <returns>Properly formatted TargetName string</returns>
         private string GetTargetName(TargetUri targetUri)
         {
-            Debug.Assert(targetUri != null, "The targetUri parameter is null");
-
-            Trace.WriteLine("SecretCache::GetTargetName");
+            BaseSecureStore.ValidateTargetUri(targetUri);
 
             return _getTargetName(targetUri, _namespace);
         }

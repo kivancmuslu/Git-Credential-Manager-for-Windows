@@ -1,43 +1,68 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 using System.Diagnostics;
 
 namespace Microsoft.Alm.Authentication
 {
     [DebuggerDisplay("{Type}")]
-    public struct GithubAuthenticationResult
+    public struct GitHubAuthenticationResult
     {
-        public GithubAuthenticationResult(GithubAuthenticationResultType type)
+        public GitHubAuthenticationResult(GitHubAuthenticationResultType type)
         {
             Type = type;
             Token = null;
         }
 
-        public GithubAuthenticationResult(GithubAuthenticationResultType type, Token token)
+        public GitHubAuthenticationResult(GitHubAuthenticationResultType type, Token token)
         {
             Type = type;
             Token = token;
         }
 
-        public readonly GithubAuthenticationResultType Type;
+        public readonly GitHubAuthenticationResultType Type;
         public Token Token { get; internal set; }
 
-        public static implicit operator Boolean(GithubAuthenticationResult result)
+        public static implicit operator Boolean(GitHubAuthenticationResult result)
         {
-            return result.Type == GithubAuthenticationResultType.Success;
+            return result.Type == GitHubAuthenticationResultType.Success;
         }
 
-        public static implicit operator GithubAuthenticationResultType(GithubAuthenticationResult result)
+        public static implicit operator GitHubAuthenticationResultType(GitHubAuthenticationResult result)
         {
             return result.Type;
         }
 
-        public static implicit operator GithubAuthenticationResult(GithubAuthenticationResultType type)
+        public static implicit operator GitHubAuthenticationResult(GitHubAuthenticationResultType type)
         {
-            return new GithubAuthenticationResult(type);
+            return new GitHubAuthenticationResult(type);
         }
     }
 
-    public enum GithubAuthenticationResultType
+    public enum GitHubAuthenticationResultType
     {
         Success,
         Failure,

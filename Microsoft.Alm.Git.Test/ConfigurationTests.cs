@@ -12,7 +12,7 @@ namespace Microsoft.Alm.Git.Test
     public class ConfigurationTests
     {
         [TestMethod]
-        public void ParseGitConfig_Simple()
+        public void ParseGitConfigSimple()
         {
             const string input = @"
 [core]
@@ -25,13 +25,12 @@ namespace Microsoft.Alm.Git.Test
         }
 
         [TestMethod]
-        public void ParseGitConfig_OverwritesValues()
+        public void ParseGitConfigOverwritesValues()
         {
-            // http://thedailywtf.com/articles/What_Is_Truth_0x3f_
             const string input = @"
 [core]
     autocrlf = true
-    autocrlf = FileNotFound
+    autocrlf = ThisShouldBeInvalidButIgnored
     autocrlf = false
 ";
 
@@ -41,7 +40,7 @@ namespace Microsoft.Alm.Git.Test
         }
 
         [TestMethod]
-        public void ParseGitConfig_PartiallyQuoted()
+        public void ParseGitConfigPartiallyQuoted()
         {
             const string input = @"
 [core ""oneQuote]
@@ -53,8 +52,9 @@ namespace Microsoft.Alm.Git.Test
             Assert.AreEqual("false", values["core.oneQuote.autocrlf"]);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         [TestMethod]
-        public void ParseGitConfig_SampleFile()
+        public void ParseGitConfigSampleFile()
         {
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var me = this.GetType();
@@ -99,9 +99,9 @@ namespace Microsoft.Alm.Git.Test
                     "";
             Configuration cut;
 
-            using (var sr = new StringReader(input))
+            using (var reader = new StringReader(input))
             {
-                cut = new Configuration(sr);
+                cut = new Configuration(reader);
             }
 
             Assert.AreEqual(true, cut.ContainsKey("CoRe.AuToCrLf"));

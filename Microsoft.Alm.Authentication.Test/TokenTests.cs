@@ -6,7 +6,7 @@ namespace Microsoft.Alm.Authentication.Test
     [TestClass]
     public class TokenTests
     {
-        const string TokenString = "The Azure AD Authentication Library (ADAL) for .NET enables client application developers to easily authenticate users to cloud or on-premises Active Directory (AD), and then obtain access tokens for securing API calls. ADAL for .NET has many features that make authentication easier for developers, such as asynchronous support, a configurable token cache that stores access tokens and refresh tokens, automatic token refresh when an access token expires and a refresh token is available, and more. By handling most of the complexity, ADAL can help a developer focus on business logic in their application and easily secure resources without being an expert on security.";
+        private const string TokenString = "The Azure AD Authentication Library (ADAL) for .NET enables client application developers to easily authenticate users to cloud or on-premises Active Directory (AD), and then obtain access tokens for securing API calls. ADAL for .NET has many features that make authentication easier for developers, such as asynchronous support, a configurable token cache that stores access tokens and refresh tokens, automatic token refresh when an access token expires and a refresh token is available, and more. By handling most of the complexity, ADAL can help a developer focus on business logic in their application and easily secure resources without being an expert on security.";
 
         [TestMethod]
         public void TokenStoreUrl()
@@ -50,7 +50,7 @@ namespace Microsoft.Alm.Authentication.Test
 
                 tokenStore.WriteToken(uri, writeToken);
 
-                if (tokenStore.ReadToken(uri, out readToken))
+                if ((readToken = tokenStore.ReadToken(uri)) != null)
                 {
                     Assert.AreEqual(writeToken.Value, readToken.Value, "Token values did not match between written and read");
                     Assert.AreEqual(writeToken.Type, readToken.Type, "Token types did not mathc between written and read");
@@ -62,7 +62,7 @@ namespace Microsoft.Alm.Authentication.Test
 
                 tokenStore.DeleteToken(uri);
 
-                Assert.IsFalse(tokenStore.ReadToken(uri, out readToken), "Deleted token was read back");
+                Assert.IsNull(readToken = tokenStore.ReadToken(uri), "Deleted token was read back");
             }
             catch (Exception exception)
             {

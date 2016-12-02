@@ -1,5 +1,32 @@
-﻿using System;
-using System.Diagnostics;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
+using System.Linq;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
 
 namespace Microsoft.Alm.Authentication
 {
@@ -8,21 +35,98 @@ namespace Microsoft.Alm.Authentication
     /// </summary>
     public sealed class BasicAuthentication : BaseAuthentication, IAuthentication
     {
+        public static readonly Credential NtlmCredentials = WwwAuthenticateHelper.Credentials;
+
         /// <summary>
         /// Creates a new <see cref="BasicAuthentication"/> object with an underlying credential store.
         /// </summary>
         /// <param name="credentialStore">
         /// The <see cref="ICredentialStore"/> to delegate to.
         /// </param>
-        public BasicAuthentication(ICredentialStore credentialStore)
+        /// <param name="acquireCredentialsCallback">
+        /// (optional) delegate for acquiring credentials.
+        /// </param>
+        /// <param name="acquireResultCallback">
+        /// (optional) delegate for notification of acquisition results.
+        /// </param>
+        public BasicAuthentication(
+            ICredentialStore credentialStore,
+            AcquireCredentialsDelegate acquireCredentialsCallback,
+            AcquireResultDelegate acquireResultCallback)
         {
             if (credentialStore == null)
-                throw new ArgumentNullException("credentialStore", "The `credentialStore` parameter is null or invalid.");
+                throw new ArgumentNullException(nameof(credentialStore));
 
-            this.CredentialStore = credentialStore;
+            _acquireCredentials = acquireCredentialsCallback;
+            _acquireResult = acquireResultCallback;
+            _credentialStore = credentialStore;
         }
 
-        internal ICredentialStore CredentialStore { get; set; }
+        public BasicAuthentication(ICredentialStore credentialStore)
+            : this(credentialStore, null, null)
+        { }
+
+        /// <summary>
+        /// Creates a new <see cref="BasicAuthentication"/> object with an underlying credential store.
+        /// </summary>
+        /// <param name="credentialStore">
+        /// The <see cref="ICredentialStore"/> to delegate to.
+        /// </param>
+        internal ICredentialStore CredentialStore
+        {
+            get { return _credentialStore; }
+        }
+
+        private readonly AcquireCredentialsDelegate _acquireCredentials;
+        private readonly AcquireResultDelegate _acquireResult;
+        private readonly ICredentialStore _credentialStore;
+        private AuthenticationHeaderValue[] _httpAuthenticateOptions;
+
+        /// <summary>
+        /// Acquires credentials via the registered callbacks.
+        /// </summary>
+        /// <param name="targetUri">
+        /// The uniform resource indicator used to uniquely identify the credentials.
+        /// </param>
+        /// <returns>If successful a <see cref="Credential"/> object from the authentication object,
+        /// authority or storage; otherwise <see langword="null"/>.</returns>
+        public async Task<Credential> AcquireCredentials(TargetUri targetUri)
+        {
+            BaseSecureStore.ValidateTargetUri(targetUri);
+
+            // get the WWW-Authenticate headers (if any)
+            if (_httpAuthenticateOptions == null)
+            {
+                _httpAuthenticateOptions = await WwwAuthenticateHelper.GetHeaderValues(targetUri);
+            }
+
+            // if the headers contain NTML as an option, then fall back to NTLM
+            if (_httpAuthenticateOptions.Any(x=> WwwAuthenticateHelper.IsNtlm(x)))
+            {
+                Git.Trace.WriteLine($"'{targetUri}' supports NTLM, sending NTLM credentials instead");
+
+                return NtlmCredentials;
+            }
+
+            Credential credentials = null;
+            if (_acquireCredentials != null)
+            {
+                Git.Trace.WriteLine($"prompting user for credentials for '{targetUri}'.");
+
+                credentials = _acquireCredentials(targetUri);
+
+                if (_acquireResult != null)
+                {
+                    AcquireCredentialResult result = (credentials == null)
+                        ? AcquireCredentialResult.Failed
+                        : AcquireCredentialResult.Suceeded;
+
+                    _acquireResult(targetUri, result);
+                }
+            }
+
+            return credentials;
+        }
 
         /// <summary>
         /// Deletes a <see cref="Credential"/> from the storage used by the authentication object.
@@ -34,31 +138,24 @@ namespace Microsoft.Alm.Authentication
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
 
-            Trace.WriteLine("BasicAuthentication::DeleteCredentials");
-
             this.CredentialStore.DeleteCredentials(targetUri);
         }
+
         /// <summary>
         /// Gets a <see cref="Credential"/> from the storage used by the authentication object.
         /// </summary>
         /// <param name="targetUri">
         /// The uniform resource indicator used to uniquely identify the credentials.
         /// </param>
-        /// <param name="credentials">
-        /// If successful a <see cref="Credential"/> object from the authentication object, 
-        /// authority or storage; otherwise <see langword="null"/>.
-        /// </param>
-        /// <returns><see langword="true"/> if successful; otherwise <see langword="false"/>.</returns>
-        public override bool GetCredentials(TargetUri targetUri, out Credential credentials)
+        /// <returns>If successful a <see cref="Credential"/> object from the authentication object,
+        /// authority or storage; otherwise <see langword="null"/>.</returns>
+        public override Credential GetCredentials(TargetUri targetUri)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
 
-            Trace.WriteLine("BasicAuthentication::GetCredentials");
-
-            this.CredentialStore.ReadCredentials(targetUri, out credentials);
-
-            return credentials != null;
+            return this.CredentialStore.ReadCredentials(targetUri);
         }
+
         /// <summary>
         /// Sets a <see cref="Credential"/> in the storage used by the authentication object.
         /// </summary>
@@ -67,15 +164,12 @@ namespace Microsoft.Alm.Authentication
         /// </param>
         /// <param name="credentials">The value to be stored.</param>
         /// <returns><see langword="true"/> if successful; otherwise <see langword="false"/>.</returns>
-        public override bool SetCredentials(TargetUri targetUri, Credential credentials)
+        public override void SetCredentials(TargetUri targetUri, Credential credentials)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
-            Credential.Validate(credentials);
-
-            Trace.WriteLine("BasicAuthentication::SetCredentials");
+            BaseSecureStore.ValidateCredential(credentials);
 
             this.CredentialStore.WriteCredentials(targetUri, credentials);
-            return true;
         }
     }
 }

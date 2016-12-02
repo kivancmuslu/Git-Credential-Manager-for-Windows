@@ -1,4 +1,29 @@
-﻿using System;
+﻿/**** Git Credential Manager for Windows ****
+ *
+ * Copyright (c) Microsoft Corporation
+ * All rights reserved.
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the """"Software""""), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+**/
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -14,13 +39,11 @@ namespace Microsoft.Alm.Git
         /// Finds the "best" path to an app of a given name.
         /// </summary>
         /// <param name="name">The name of the application, without extension, to find.</param>
-        /// <param name="path">Path to the first match file which the operating system considers 
+        /// <param name="path">Path to the first match file which the operating system considers
         /// executable.</param>
         /// <returns><see langword="True"/> if succeeds; <see langword="false"/> otherwise.</returns>
         static public bool FindApp(string name, out string path)
         {
-            Trace.WriteLine("Where::App");
-
             if (!String.IsNullOrWhiteSpace(name))
             {
                 string pathext = Environment.GetEnvironmentVariable("PATHEXT");
@@ -61,11 +84,11 @@ namespace Microsoft.Alm.Git
         }
 
         /// <summary>
-        /// Finds and returns paths to Git installtions in common locations.
+        /// Finds and returns paths to Git installations in common locations.
         /// </summary>
         /// <param name="hints">(optional) List of paths the caller believes Git can be found.</param>
         /// <param name="paths">
-        /// All discoverd paths to the root of Git installations, ordered by 'priority' with first
+        /// All discovered paths to the root of Git installations, ordered by 'priority' with first
         /// being the best installation to use when shelling out to Git.exe.
         /// </param>
         /// <returns><see langword="True"/> if Git was detected; <see langword="false"/> otherwise.</returns>
@@ -74,8 +97,6 @@ namespace Microsoft.Alm.Git
             const string GitAppName = @"Git";
             const string GitSubkeyName = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Git_is1";
             const string GitValueName = "InstallLocation";
-
-            Trace.WriteLine("Where::Git");
 
             installations = null;
 
@@ -231,7 +252,7 @@ namespace Microsoft.Alm.Git
 
             installations = pathSet.ToList();
 
-            Trace.WriteLine("   " + installations.Count + " Git installation(s) found.");
+            Git.Trace.WriteLine($"found {installations.Count} Git installation(s).");
 
             return installations.Count > 0;
         }
@@ -245,11 +266,15 @@ namespace Microsoft.Alm.Git
         {
             const string GlobalConfigFileName = ".gitconfig";
 
-            Trace.WriteLine("Where::GitGlobalConfig");
-
             path = null;
 
-            var globalPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), GlobalConfigFileName);
+            string home = Environment.GetEnvironmentVariable("HOME");
+            if (String.IsNullOrWhiteSpace(home) || !Directory.Exists(home))
+            {
+                home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+
+            var globalPath = Path.Combine(home, GlobalConfigFileName);
 
             if (File.Exists(globalPath))
             {
@@ -265,20 +290,19 @@ namespace Microsoft.Alm.Git
         /// <param name="startingDirectory">A directory of the repository where the configuration file is contained.</param>
         /// <param name="path">Path to the Git local configuration</param>
         /// <returns><see langword="True"/> if succeeds; <see langword="false"/> otherwise.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static bool GitLocalConfig(string startingDirectory, out string path)
         {
-            const string GitOdbFolderName = ".git";
+            const string GitFolderName = ".git";
             const string LocalConfigFileName = "config";
-
-            Trace.WriteLine("Where::GitLocalConfig");
 
             path = null;
 
             if (!String.IsNullOrWhiteSpace(startingDirectory))
             {
                 var dir = new DirectoryInfo(startingDirectory);
-                if (dir.Exists)
 
+                if (dir.Exists)
                 {
                     Func<DirectoryInfo, FileSystemInfo> hasOdb = (DirectoryInfo info) =>
                     {
@@ -290,7 +314,8 @@ namespace Microsoft.Alm.Git
                                    {
                                        return sub != null
                                            && sub.Exists
-                                           && String.Equals(sub.Name, GitOdbFolderName, StringComparison.OrdinalIgnoreCase);
+                                           && (String.Equals(sub.Name, GitFolderName, StringComparison.OrdinalIgnoreCase)
+                                              || String.Equals(sub.Name, LocalConfigFileName, StringComparison.OrdinalIgnoreCase));
                                    })
                                    .FirstOrDefault();
                     };
@@ -313,6 +338,10 @@ namespace Microsoft.Alm.Git
                             {
                                 path = localPath;
                             }
+                        }
+                        else if (result.Name == LocalConfigFileName && result is FileInfo)
+                        {
+                            path = result.FullName;
                         }
                         else
                         {
@@ -397,27 +426,21 @@ namespace Microsoft.Alm.Git
         /// </summary>
         /// <param name="path">Path to the Git system configuration.</param>
         /// <returns><see langword="True"/> if succeeds; <see langword="false"/> otherwise.</returns>
-        public static bool GitSystemConfig(out string path)
+        public static bool GitSystemConfig(GitInstallation? installation, out string path)
         {
-            const string SystemConfigFileName = "gitconfig";
-
-            Trace.WriteLine("Where::GitSystemConfig");
-
-            // find Git on the local disk - the system config is stored relative to it
-            if (FindApp("git", out path))
+            if (installation.HasValue && File.Exists(installation.Value.Config))
             {
-                FileInfo gitInfo = new FileInfo(path);
-                DirectoryInfo dir = gitInfo.Directory;
-                if (dir.Parent != null)
-                {
-                    dir = dir.Parent;
-                }
+                path = installation.Value.Path;
+            }
+            // find Git on the local disk - the system config is stored relative to it
+            else
+            {
+                List<GitInstallation> installations;
 
-                var file = dir.EnumerateFiles(SystemConfigFileName, SearchOption.AllDirectories).FirstOrDefault();
-                if (file != null && file.Exists)
+                if (FindGitInstallations(out installations)
+                    && File.Exists(installations[0].Config))
                 {
-                    path = file.FullName;
-                    return true;
+                    path = installations[0].Config;
                 }
             }
 

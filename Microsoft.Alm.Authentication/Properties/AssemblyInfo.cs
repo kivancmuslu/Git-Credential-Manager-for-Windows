@@ -1,9 +1,9 @@
-﻿using System.Resources;
-using System.Reflection;
+﻿using System.Reflection;
+using System.Resources;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("Microsoft.Alm.Authentication")]
+[assembly: AssemblyTitle("Microsoft Alm Authentication")]
 [assembly: AssemblyDescription("Microsoft Application Lifecycle Management Authentication Library for Windows")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Microsoft Corporation")]
@@ -11,11 +11,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyright("Copyright © Microsoft 2016")]
 [assembly: AssemblyTrademark("Microsoft Corporation")]
 [assembly: AssemblyCulture("")]
-
 [assembly: ComVisible(false)]
 [assembly: Guid("c1daabc1-b493-459d-bb4f-04fbefb1ba13")]
-[assembly: AssemblyVersion("2.0.0.0")]
-[assembly: AssemblyFileVersion("2.0.0.0")]
-//[assembly:InternalsVisibleTo("Microsoft.Alm.Authentication.Test")]
+[assembly: AssemblyVersion("3.2.0.0")]
+[assembly: AssemblyFileVersion("3.2.0.0")]
+[assembly: InternalsVisibleTo("Microsoft.Alm.Authentication.Test")]
 [assembly: NeutralResourcesLanguage("en-US")]
-
