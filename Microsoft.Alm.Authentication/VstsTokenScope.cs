@@ -126,15 +126,15 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         public static readonly VstsTokenScope WorkWrite = new VstsTokenScope("vso.work_write");
 
-        private VstsTokenScope(string value)
+        public VstsTokenScope(string value)
             : base(value)
         { }
 
-        private VstsTokenScope(string[] values)
+        public VstsTokenScope(string[] values)
             : base(values)
         { }
 
-        private VstsTokenScope(ScopeSet set)
+        public VstsTokenScope(ScopeSet set)
             : base(set)
         { }
 

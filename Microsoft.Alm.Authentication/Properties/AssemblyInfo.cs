@@ -15,5 +15,5 @@ using System.Runtime.InteropServices;
 [assembly: Guid("c1daabc1-b493-459d-bb4f-04fbefb1ba13")]
 [assembly: AssemblyVersion("3.2.0.0")]
 [assembly: AssemblyFileVersion("3.2.0.0")]
-[assembly: InternalsVisibleTo("Microsoft.Alm.Authentication.Test")]
+//[assembly: InternalsVisibleTo("Microsoft.Alm.Authentication.Test")]
 [assembly: NeutralResourcesLanguage("en-US")]
