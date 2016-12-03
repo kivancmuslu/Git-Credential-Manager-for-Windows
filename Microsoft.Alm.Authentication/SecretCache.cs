@@ -193,7 +193,8 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         /// <param name="targetUri">The key which to index the token by.</param>
         /// <param name="token">The token to write to the cache.</param>
-        public void WriteToken(TargetUri targetUri, Token token)
+        /// 
+        public void WriteToken(TargetUri targetUri, Token token, string comment)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
             Token.Validate(token);

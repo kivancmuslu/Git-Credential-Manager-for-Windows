@@ -34,8 +34,8 @@ namespace Microsoft.Alm.Authentication
     {
         public const string DefaultAuthorityHost = AzureAuthority.AuthorityHostUrlBase + "/live.com";
 
-        public VstsMsaAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore)
-            : base(tokenScope, personalAccessTokenStore)
+        public VstsMsaAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore, string patVersion)
+            : base(tokenScope, personalAccessTokenStore, patVersion)
         {
             this.VstsAuthority = new VstsAzureAuthority(DefaultAuthorityHost);
         }
@@ -50,10 +50,12 @@ namespace Microsoft.Alm.Authentication
         internal VstsMsaAuthentication(
             ICredentialStore personalAccessTokenStore,
             ITokenStore vstsIdeTokenCache,
-            IVstsAuthority liveAuthority)
+            IVstsAuthority liveAuthority,
+            string patVersion)
             : base(personalAccessTokenStore,
                    vstsIdeTokenCache,
-                   liveAuthority)
+                   liveAuthority,
+                   patVersion)
         { }
 
         /// <summary>

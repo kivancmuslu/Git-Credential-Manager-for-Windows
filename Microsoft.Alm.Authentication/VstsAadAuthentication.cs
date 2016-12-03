@@ -51,8 +51,9 @@ namespace Microsoft.Alm.Authentication
         public VstsAadAuthentication(
             Guid tenantId,
             VstsTokenScope tokenScope,
-            ICredentialStore personalAccessTokenStore)
-            : base(tokenScope, personalAccessTokenStore)
+            ICredentialStore personalAccessTokenStore,
+            string patVersion)
+            : base(tokenScope, personalAccessTokenStore, patVersion)
         {
             if (tenantId == Guid.Empty)
             {
@@ -72,10 +73,12 @@ namespace Microsoft.Alm.Authentication
         internal VstsAadAuthentication(
             ICredentialStore personalAccessTokenStore,
             ITokenStore vstsIdeTokenCache,
-            IVstsAuthority vstsAuthority)
+            IVstsAuthority vstsAuthority,
+            string patVersion)
             : base(personalAccessTokenStore,
                    vstsIdeTokenCache,
-                   vstsAuthority)
+                   vstsAuthority,
+                   patVersion)
         { }
 
         /// <summary>

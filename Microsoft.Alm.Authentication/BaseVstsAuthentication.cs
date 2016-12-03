@@ -41,8 +41,9 @@ namespace Microsoft.Alm.Authentication
         public const string RedirectUrl = "urn:ietf:wg:oauth:2.0:oob";
 
         protected const string AdalRefreshPrefix = "ada";
+        protected readonly string PatVersion;
 
-        protected BaseVstsAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore)
+        protected BaseVstsAuthentication(VstsTokenScope tokenScope, ICredentialStore personalAccessTokenStore, string patVersion)
         {
             if (ReferenceEquals(tokenScope, null))
                 throw new ArgumentNullException(nameof(TokenScope));
@@ -54,12 +55,14 @@ namespace Microsoft.Alm.Authentication
             this.TokenScope = tokenScope;
             this.PersonalAccessTokenStore = personalAccessTokenStore;
             this.VstsAuthority = new VstsAzureAuthority();
+            this.PatVersion = patVersion;
         }
         internal BaseVstsAuthentication(
             ICredentialStore personalAccessTokenStore,
             ITokenStore vstsIdeTokenCache,
-            IVstsAuthority vstsAuthority)
-            : this(VstsTokenScope.ProfileRead, personalAccessTokenStore)
+            IVstsAuthority vstsAuthority,
+            string patVersion)
+            : this(VstsTokenScope.ProfileRead, personalAccessTokenStore, patVersion)
         {
             if (ReferenceEquals(vstsIdeTokenCache, null))
                 throw new ArgumentNullException(nameof(vstsIdeTokenCache));
@@ -165,6 +168,7 @@ namespace Microsoft.Alm.Authentication
             if ((personalAccessToken = await this.VstsAuthority.GeneratePersonalAccessToken(targetUri, accessToken, TokenScope, requestCompactToken)) != null)
             {
                 credential = (Credential)personalAccessToken;
+                credential.Comment = this.PatVersion;
 
                 Git.Trace.WriteLine($"personal access token created for '{targetUri}'.");
 
@@ -249,7 +253,8 @@ namespace Microsoft.Alm.Authentication
         public static BaseAuthentication GetAuthentication(
             TargetUri targetUri,
             VstsTokenScope scope,
-            ICredentialStore personalAccessTokenStore)
+            ICredentialStore personalAccessTokenStore,
+            string patVersion)
         {
             BaseSecureStore.ValidateTargetUri(targetUri);
             if (ReferenceEquals(scope, null))
@@ -266,12 +271,12 @@ namespace Microsoft.Alm.Authentication
                 if (tenantId == Guid.Empty)
                 {
                     Git.Trace.WriteLine("MSA authority detected.");
-                    authentication = new VstsMsaAuthentication(scope, personalAccessTokenStore);
+                    authentication = new VstsMsaAuthentication(scope, personalAccessTokenStore, patVersion);
                 }
                 else
                 {
                     Git.Trace.WriteLine($"AAD authority for tenant '{tenantId}' detected.");
-                    authentication = new VstsAadAuthentication(tenantId, scope, personalAccessTokenStore);
+                    authentication = new VstsAadAuthentication(tenantId, scope, personalAccessTokenStore, patVersion);
                     (authentication as VstsAadAuthentication).TenantId = tenantId;
                 }
             }

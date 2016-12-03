@@ -127,8 +127,9 @@ namespace Microsoft.Alm.Authentication
                                     ? Marshal.PtrToStringUni(credStruct.CredentialBlob, passwordLength / sizeof(char))
                                     : String.Empty;
                     string username = credStruct.UserName ?? String.Empty;
+                    string comment = credStruct.Comment ?? String.Empty;
 
-                    credentials = new Credential(username, password);
+                    credentials = new Credential(username, password, comment);
 
                     Git.Trace.WriteLine($"credentials for '{targetName}' read from store.");
                 }
@@ -192,6 +193,7 @@ namespace Microsoft.Alm.Authentication
                 Persist = NativeMethods.CredentialPersist.LocalMachine,
                 AttributeCount = 0,
                 UserName = credentials.Username,
+                Comment = credentials.Comment
             };
             try
             {
@@ -212,7 +214,7 @@ namespace Microsoft.Alm.Authentication
             }
         }
 
-        protected void WriteToken(string targetName, Token token)
+        protected void WriteToken(string targetName, Token token, string comment)
         {
             byte[] bytes = null;
             if (Token.Serialize(token, out bytes))
@@ -228,6 +230,7 @@ namespace Microsoft.Alm.Authentication
                         Persist = NativeMethods.CredentialPersist.LocalMachine,
                         AttributeCount = 0,
                         UserName = name,
+                        Comment = comment
                     };
                     try
                     {

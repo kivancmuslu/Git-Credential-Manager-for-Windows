@@ -167,14 +167,14 @@ namespace Microsoft.Alm.Authentication
         /// </summary>
         /// <param name="targetUri">The URI of the target for which a token is being stored</param>
         /// <param name="token">The token to be stored</param>
-        public void WriteToken(TargetUri targetUri, Token token)
+        public void WriteToken(TargetUri targetUri, Token token, string comment)
         {
             ValidateTargetUri(targetUri);
             Token.Validate(token);
 
             string targetName = this.GetTargetName(targetUri);
 
-            this.WriteToken(targetName, token);
+            this.WriteToken(targetName, token, comment);
 
             _tokenCache.WriteToken(targetUri, token);
         }
