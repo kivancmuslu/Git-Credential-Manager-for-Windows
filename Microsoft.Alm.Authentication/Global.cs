@@ -24,6 +24,7 @@
 **/
 
 using System;
+using System.Reflection;
 
 namespace Microsoft.Alm.Authentication
 {
@@ -73,10 +74,10 @@ namespace Microsoft.Alm.Authentication
         {
             get
             {
-                var assemblyName = System.Reflection.Assembly.GetEntryAssembly().GetName();
-                var name = assemblyName.Name;
-                var version = assemblyName.Version;
-                var useragent = string.Format("{0} ({1}; {2}; {3}) CLR/{4} git-tools/{5}",
+                Assembly asm = Assembly.GetEntryAssembly();
+                var name = asm != null ? asm.GetName().Name : "Test";
+                var version = asm != null ? asm.GetName().Version : new Version("1.0.0.0");
+                var useragent = string.Format("{0} ({1}; {2}; {3}) CLR/{4} review-tools/{5}",
                                               name,
                                               Environment.OSVersion.VersionString,
                                               Environment.OSVersion.Platform,
